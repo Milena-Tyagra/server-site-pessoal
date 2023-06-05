@@ -1,4 +1,5 @@
 const { Pool } = require("pg")
+const bcrypt = require("bcrypt")
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -59,10 +60,37 @@ const initDatabase = async () => {
         senha VARCHAR(255) NOT NULL
       );
     `)
+
+    criarUsuarioInicial()
+
     console.log("Banco de dados foi inicializado com sucesso!")
   } catch (error) {
     console.log(error)
   }
+}
+
+const criarUsuarioInicial = async () => {
+  const saltRounds = 10
+  const usuario = process.env.USER_EMAIL
+  const senha = process.env.USER_PASSWORD
+  const { rows } = await pool.query("SELECT * FROM usuarios WHERE email = $1", [
+    usuario,
+  ])
+
+  if (!rows[0]) {
+    bcrypt.hash(senha, saltRounds, async function (err, hash) {
+      await pool.query(
+        `
+          INSERT INTO usuarios (email, senha)
+          VALUES ($1, $2)
+        `,[usuario, hash]
+      )
+    })
+  }
+
+  // bcrypt.compare("senha", "$2b$10$v6yEYiJBizg8vVG/.EtDbevbrboOdHsfY/n/EKOd/sqtzkq4gpA7m", function (err, result) {
+  //   console.log(result)
+  // })
 }
 
 module.exports = { pool, initDatabase }
